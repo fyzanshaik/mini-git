@@ -12,6 +12,15 @@ Built this with python3 with OOPS in mind, and simplistic git principles
 source ~/.bashrc  # or restart terminal
 ```
 
+## Demo Scripts
+```bash
+# Comprehensive Python demo with colorful output
+python3 demo.py
+
+# Quick bash demo script
+./quick-demo.sh
+```
+
 Branching - merge,checkout and plenty of stuff isn't done and needs more time and work!Will do it in future implementations
 
 Commands implemented: 

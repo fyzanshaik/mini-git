@@ -397,12 +397,32 @@ class Repository:
         
         print(f"[Repository] Creating commit with {len(staged_files)} staged files")
         
+        # Build complete tree: staged files + unchanged files from parent
+        all_files = {}
+        
+        # First, get all files from parent commit (if exists)
+        parent_hash = self.get_head()
+        if parent_hash:
+            try:
+                parent_commit = self.load_object(parent_hash)
+                if parent_commit.get_type() == "commit":
+                    parent_tree = self.load_object(parent_commit.tree_hash)
+                    # Add all files from parent tree
+                    for entry in parent_tree.entries:
+                        all_files[entry['name']] = entry['hash']
+                    print(f"[Repository] Inherited {len(parent_tree.entries)} files from parent commit")
+            except Exception as e:
+                print(f"[Repository] Warning: Could not load parent commit: {e}")
+        
+        # override with staged files (new/modified files) so that I can see the changes, this works for some reason 
+        all_files.update(staged_files)
+        
         tree = Tree()
-        for file_path, hash_value in staged_files.items():
+        for file_path, hash_value in all_files.items():
             tree.add_entry("100644", file_path, hash_value)
         
         tree_hash = self.store_object(tree)
-        print(f"[Repository] Created tree {tree_hash[:8]} with {len(staged_files)} entries")
+        print(f"[Repository] Created tree {tree_hash[:8]} with {len(all_files)} total entries ({len(staged_files)} staged)")
         
         parent_hash = self.get_head()
         
@@ -456,10 +476,40 @@ class Repository:
         
         return history
 
+    def get_branch_head(self, branch_name):
+        branch_file = os.path.join(self.heads_path, branch_name)
+        if not os.path.exists(branch_file):
+            return None
+        
+        with open(branch_file, 'r') as f:
+            return f.read().strip()
+
     def get_commit_chain(self):
-        """Get the full commit chain from HEAD backwards"""
-        history = self.get_commit_history()
-        return [commit_hash for commit_hash, commit_obj in history]
+        """Get the full commit chain from main branch head backwards"""
+        # Always use main branch to get the full commit chain
+        # This ensures we see all commits even when HEAD is detached
+        branch_head = self.get_branch_head("main")
+        
+        if not branch_head:
+            return []
+        
+        history = []
+        current_hash = branch_head
+        
+        while current_hash:
+            try:
+                commit = self.load_object(current_hash)
+                if commit.get_type() != "commit":
+                    break
+                    
+                history.append(current_hash)
+                current_hash = commit.parent_hash
+                
+            except Exception as e:
+                print(f"[Repository] Error loading commit {current_hash}: {e}")
+                break
+        
+        return history
 
     def get_current_commit_position(self):
         """Get current commit and its position in the chain"""
@@ -542,6 +592,7 @@ class Repository:
     def _restore_commit_state(self, tree):
         """Restore working directory to match tree state"""
         current_files = set()
+        for root, dirs, files in os.walk(self.repo_path):
             # Skip .minigit
             if '.minigit' in dirs:
                 dirs.remove('.minigit')

@@ -5,7 +5,8 @@ why?
 Git is most widely used version control system and this is my shot at implementing at least the basic functionality. 
 
 Built this with python3 with OOPS in mind, and simplistic git principles
-
+Credit goes to [Boot Dev](https://www.boot.dev/) for their courses on __python__ __OOPS__, and __functional programming__.
+Submission for personal project!
 ## Installation
 ```bash
 ./install.sh

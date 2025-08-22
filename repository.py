@@ -397,19 +397,15 @@ class Repository:
         
         print(f"[Repository] Creating commit with {len(staged_files)} staged files")
         
-        # Create tree from staged files
         tree = Tree()
         for file_path, hash_value in staged_files.items():
-            # Simple file mode - all files are 100644 (regular file)
             tree.add_entry("100644", file_path, hash_value)
         
         tree_hash = self.store_object(tree)
         print(f"[Repository] Created tree {tree_hash[:8]} with {len(staged_files)} entries")
         
-        # Get parent commit
         parent_hash = self.get_head()
         
-        # Create commit
         commit = Commit(
             tree_hash=tree_hash,
             parent_hash=parent_hash,
@@ -420,17 +416,14 @@ class Repository:
         commit_hash = self.store_object(commit)
         print(f"[Repository] Created commit {commit_hash[:8]}")
         
-        # Update HEAD
         current_branch = self.get_current_branch()
         if current_branch:
             self.update_branch(current_branch, commit_hash)
             print(f"[Repository] Updated branch {current_branch} -> {commit_hash[:8]}")
         else:
-            # Update HEAD directly if no branch
             self.update_head(commit_hash)
             print(f"[Repository] Updated HEAD -> {commit_hash[:8]}")
         
-        # Clear staging area
         self.write_index({})
         print("[Repository] Cleared staging area")
         
@@ -462,6 +455,130 @@ class Repository:
                 break
         
         return history
+
+    def get_commit_chain(self):
+        """Get the full commit chain from HEAD backwards"""
+        history = self.get_commit_history()
+        return [commit_hash for commit_hash, commit_obj in history]
+
+    def get_current_commit_position(self):
+        """Get current commit and its position in the chain"""
+        current_hash = self.get_head()
+        if not current_hash:
+            return None, -1
+        
+        chain = self.get_commit_chain()
+        try:
+            position = chain.index(current_hash)
+            return current_hash, position
+        except ValueError:
+            return current_hash, 0
+    #this is just for my own simplicity and i dont lose my fucking head
+    def move_to_commit(self, target_hash):
+        """Simple commit switching - overwrites working directory with commit state"""
+        full_hash = self.resolve_hash(target_hash)
+        if not full_hash:
+            print(f"[Repository] Error: Could not resolve hash {target_hash}")
+            return False
+
+        try:
+            # Load commit and tree
+            commit = self.load_object(full_hash)
+            if commit.get_type() != "commit":
+                print(f"[Repository] Error: {target_hash} is not a commit")
+                return False
+
+            tree = self.load_object(commit.tree_hash)
+            print(f"[Repository] Moving to commit {full_hash[:8]}: {commit.message}")
+            
+            # Simple approach: remove tracked files and restore from tree
+            self._restore_commit_state(tree)
+            
+            # Update HEAD directly
+            with open(self.head_file, 'w') as f:
+                f.write(full_hash)
+            print(f"[Repository] Updated HEAD to {full_hash[:8]}")
+            
+            # Clear staging
+            self.write_index({})
+            
+            print(f"[Repository] ✅ Now at {full_hash[:8]}")
+            return True
+            
+        except Exception as e:
+            print(f"[Repository] Error moving to commit: {e}")
+            return False
+
+    def move_up(self):
+        """Move to newer commit (child of current)"""
+        current_hash, position = self.get_current_commit_position()
+        if current_hash is None:
+            print("[Repository] No commits found")
+            return False
+            
+        if position == 0:
+            print("[Repository] Already at the newest commit")
+            return False
+            
+        chain = self.get_commit_chain()
+        newer_hash = chain[position - 1]
+        return self.move_to_commit(newer_hash)
+
+    def move_down(self):
+        """Move to older commit (parent of current)"""
+        current_hash, position = self.get_current_commit_position()
+        if current_hash is None:
+            print("[Repository] No commits found")
+            return False
+            
+        chain = self.get_commit_chain()
+        if position >= len(chain) - 1:
+            print("[Repository] Already at the oldest commit")
+            return False
+            
+        older_hash = chain[position + 1]
+        return self.move_to_commit(older_hash)
+
+    def _restore_commit_state(self, tree):
+        """Restore working directory to match tree state"""
+        current_files = set()
+            # Skip .minigit
+            if '.minigit' in dirs:
+                dirs.remove('.minigit')
+            dirs[:] = [d for d in dirs if not d.startswith('.')]
+            
+            for file in files:
+                if not file.startswith('.') and not file.endswith('.pyc'):
+                    rel_path = os.path.relpath(os.path.join(root, file), self.repo_path)
+                    current_files.add(rel_path)
+        
+        tree_files = {entry['name'] for entry in tree.entries}
+        
+        for file_path in current_files - tree_files:
+            full_path = os.path.join(self.repo_path, file_path)
+            try:
+                os.remove(full_path)
+                print(f"[Repository] Removed: {file_path}")
+            except Exception as e:
+                print(f"[Repository] Warning: Could not remove {file_path}: {e}")
+        
+        for entry in tree.entries:
+            file_path = entry['name']
+            hash_value = entry['hash']
+            
+            try:
+                blob = self.load_object(hash_value)
+                full_path = os.path.join(self.repo_path, file_path)
+                
+                os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                
+                with open(full_path, 'wb') as f:
+                    f.write(blob.data)
+                
+                print(f"[Repository] Restored: {file_path}")
+                
+            except Exception as e:
+                print(f"[Repository] Error restoring {file_path}: {e}")
 
     @classmethod
     def find_repository(cls, start_path="."):

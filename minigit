@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+"""
+Mini-Git - A minimal implementation of Git version control
+Entry point script that can be run from anywhere
+"""
+
+import os
+import sys
+
+# Add the mini-git directory to Python path
+script_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, script_dir)
+
+# Import and run the CLI
+try:
+    from cli import main
+    if __name__ == '__main__':
+        exit_code = main()
+        sys.exit(exit_code)
+except ImportError as e:
+    print(f"Error: Could not import mini-git modules: {e}")
+    print(f"Make sure you're running from the mini-git directory: {script_dir}")
+    sys.exit(1)

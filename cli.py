@@ -2,6 +2,8 @@ import sys
 import os
 import argparse
 import importlib.util
+#TODO: this is a bit of a hack, I should find a better way to do this, but it is a bit of a hack.
+#Logs are very verbose and probably one log class would be better for all objects.
 
 #this function is used to load the module from the file path, MODULE IS basically where the import command is
 def load_module(module_name, file_path):
@@ -323,6 +325,80 @@ def cmd_log(args):
     return 0
 
 
+def cmd_move(args):
+    print(f"[CLI] Moving {args.direction}...")
+    
+    repo = Repository.find_repository()
+    if repo is None:
+        print("[CLI] ERROR: Not a minigit repository")
+        print("[CLI] Run 'minigit init' to initialize a repository")
+        return 1
+    
+    # Check for staged changes
+    staged_files = repo.get_staged_files()
+    if staged_files:
+        print("[CLI] ERROR: You have staged changes")
+        print("[CLI] Commit your changes before moving between commits")
+        return 1
+    
+    current_hash, position = repo.get_current_commit_position()
+    if current_hash is None:
+        print("[CLI] ERROR: No commits found")
+        return 1
+    
+    chain = repo.get_commit_chain()
+    print(f"[CLI] Current position: {position + 1}/{len(chain)} (commit {current_hash[:8]})")
+    
+    if args.direction == 'u':
+        success = repo.move_up()
+    elif args.direction == 'd':
+        success = repo.move_down()
+    else:
+        print("[CLI] ERROR: Direction must be 'u' (up/newer) or 'd' (down/older)")
+        return 1
+    
+    if success:
+        new_hash, new_position = repo.get_current_commit_position()
+        print(f"[CLI] ✅ Moved to position {new_position + 1}/{len(chain)} (commit {new_hash[:8]})")
+        return 0
+    else:
+        return 1
+
+
+def cmd_checkout(args):
+    print(f"[CLI] Checking out commit: {args.commit}")
+    
+    repo = Repository.find_repository()
+    if repo is None:
+        print("[CLI] ERROR: Not a minigit repository")
+        print("[CLI] Run 'minigit init' to initialize a repository")
+        return 1
+    
+    # Check for staged changes
+    staged_files = repo.get_staged_files()
+    if staged_files:
+        print("[CLI] ERROR: You have staged changes")
+        print("[CLI] Commit your changes before switching commits")
+        return 1
+    
+    # Show current position
+    current_hash, position = repo.get_current_commit_position()
+    if current_hash:
+        chain = repo.get_commit_chain()
+        print(f"[CLI] Current: {position + 1}/{len(chain)} (commit {current_hash[:8]})")
+    
+    # Move to target commit
+    success = repo.move_to_commit(args.commit)
+    
+    if success:
+        new_hash, new_position = repo.get_current_commit_position()
+        chain = repo.get_commit_chain()
+        print(f"[CLI] ✅ Now at position {new_position + 1}/{len(chain)} (commit {new_hash[:8]})")
+        return 0
+    else:
+        return 1
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog='minigit',
@@ -372,6 +448,19 @@ def main():
         help='Maximum number of commits to show'
     )
     
+    move_parser = subparsers.add_parser('move', help='Move between commits')
+    move_parser.add_argument(
+        'direction',
+        choices=['u', 'd'],
+        help='Direction: u (up/newer) or d (down/older)'
+    )
+    
+    checkout_parser = subparsers.add_parser('checkout', help='Jump to specific commit')
+    checkout_parser.add_argument(
+        'commit',
+        help='Commit hash (4+ characters) to checkout'
+    )
+    
     if len(sys.argv) < 2:
         parser.print_help()
         return 1
@@ -390,6 +479,10 @@ def main():
         return cmd_commit(args)
     elif args.command == 'log':
         return cmd_log(args)
+    elif args.command == 'move':
+        return cmd_move(args)
+    elif args.command == 'checkout':
+        return cmd_checkout(args)
     else:
         print(f"[CLI] ERROR: Unknown command '{args.command}'")
         parser.print_help()

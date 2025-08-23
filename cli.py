@@ -2,7 +2,7 @@ import sys
 import os
 import argparse
 import importlib.util
-#TODO: this is a bit of a hack, I should find a better way to do this, but it is a bit of a hack.
+#TODO: this is a bit of a hack, I should find a better way to do this but chalega
 #Logs are very verbose and probably one log class would be better for all objects.
 
 #this function is used to load the module from the file path, MODULE IS basically where the import command is

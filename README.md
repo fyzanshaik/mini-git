@@ -17,7 +17,15 @@ source ~/.bashrc  # or restart terminal
 ```bash
 # Comprehensive Python demo with colorful output
 python3 demo.py
-
+```
+**NOTE**: Before you experiment this add this to your IDE's workspace setting to visualize the folders
+```json
+{
+    "files.exclude": {
+        "**/.git": false,
+        "**/.minigit": false
+    }
+}
 # Quick bash demo script
 ./quick-demo.sh
 ```

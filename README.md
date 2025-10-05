@@ -62,3 +62,9 @@ Usage: `minigit <command>`. Run `./install.sh` to use globally.
 
 ## Contributing
 Contribute
+
+## Motivation
+
+## Quick start
+
+## Usage

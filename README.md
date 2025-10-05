@@ -59,3 +59,6 @@ Usage: `minigit <command>`. Run `./install.sh` to use globally.
 
 - `blog.md` - code implementation details
 - `git-research.md` - full understanding of git internals (researched with Gemini 2.5 Pro)
+
+## Contributing
+Contribute
